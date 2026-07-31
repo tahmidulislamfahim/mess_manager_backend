@@ -1,6 +1,16 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import jwt
+import bcrypt
+
+# Fix for passlib compatibility with newer bcrypt versions (4.0+)
+try:
+    _ = bcrypt.__about__.__version__
+except AttributeError:
+    class _BcryptAbout:
+        __version__ = getattr(bcrypt, "__version__", "4.0.1")
+    bcrypt.__about__ = _BcryptAbout()
+
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
