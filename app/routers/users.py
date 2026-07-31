@@ -3,13 +3,28 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, DailyMeal, Deposit, Expense, MessMonth
-from app.schemas import UserCreate, UserOut
+from app.schemas import UserCreate, UserOut, UserProfileUpdate
 from app.security import get_password_hash, get_current_user, require_roles
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 @router.get("/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@router.put("/me", response_model=UserOut)
+def update_profile(
+    profile_in: UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if profile_in.name is not None and profile_in.name.strip():
+        current_user.name = profile_in.name.strip()
+    if profile_in.password is not None and profile_in.password.strip():
+        current_user.hashed_password = get_password_hash(profile_in.password.strip())
+    
+    db.commit()
+    db.refresh(current_user)
     return current_user
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)

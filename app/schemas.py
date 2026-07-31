@@ -17,6 +17,10 @@ class UserOut(UserBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    password: Optional[str] = None
+
 # Auth Schemas
 class LoginRequest(BaseModel):
     email: EmailStr
