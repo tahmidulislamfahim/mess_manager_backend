@@ -39,7 +39,11 @@ def create_user(
 
 @router.get("", response_model=List[UserOut])
 def list_users(
+    include_super_admin: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["SUPER_ADMIN", "MANAGER"]))
 ):
-    return db.query(User).filter(User.is_active == True).all()
+    query = db.query(User).filter(User.is_active == True)
+    if not include_super_admin:
+        query = query.filter(User.role != "SUPER_ADMIN")
+    return query.all()

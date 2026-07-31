@@ -46,8 +46,8 @@ def get_month_summary(
     total_expenses_res = db.query(func.sum(Expense.amount)).filter(Expense.month_id == mess_month.id).scalar()
     total_expenses = float(total_expenses_res or 0.0)
 
-    # All active users
-    active_users = db.query(User).filter(User.is_active == True).all()
+    # All active roommate members (excluding Super Admin)
+    active_users = db.query(User).filter(User.is_active == True, User.role != "SUPER_ADMIN").all()
 
     # Pre-calculate meals per user
     user_meals_map = {}
