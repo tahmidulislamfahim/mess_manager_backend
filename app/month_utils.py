@@ -1,6 +1,12 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from app.models import MessMonth, DailyMeal, Expense, Deposit, User
+
+# Local Timezone for Bangladesh (UTC+6)
+LOCAL_TZ = timezone(timedelta(hours=6))
+
+def get_current_local_now() -> datetime:
+    return datetime.now(LOCAL_TZ)
 
 def auto_clean_previous_months(db: Session, current_year: int, current_month: int):
     """
@@ -29,7 +35,7 @@ def get_or_create_mess_month(db: Session, year: int, month: int, fallback_user_i
     """
     Triggers automatic cleanup of older months, then returns or creates the MessMonth for (year, month).
     """
-    now = datetime.now()
+    now = get_current_local_now()
     # Auto-clean any months prior to the current real-time calendar month
     auto_clean_previous_months(db, now.year, now.month)
 

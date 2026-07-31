@@ -7,7 +7,7 @@ from app.models import MessMonth, Expense, User
 from app.schemas import ExpenseCreate, ExpenseOut, ExpenseUpdate
 from app.security import get_current_user, require_roles
 
-from app.month_utils import get_or_create_mess_month, auto_clean_previous_months
+from app.month_utils import get_or_create_mess_month, auto_clean_previous_months, get_current_local_now
 
 router = APIRouter(prefix="/api/v1/expenses", tags=["Expenses"])
 
@@ -17,7 +17,7 @@ def create_expense(
     db: Session = Depends(get_db),
     manager: User = Depends(require_roles(["SUPER_ADMIN", "MANAGER"]))
 ):
-    exp_date = exp_in.date or datetime.now().date()
+    exp_date = exp_in.date or get_current_local_now().date()
     mess_month = get_or_create_mess_month(db, exp_date.year, exp_date.month, fallback_user_id=manager.id)
 
     if mess_month.is_closed:
@@ -42,7 +42,7 @@ def list_expenses(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    now = datetime.now()
+    now = get_current_local_now()
     auto_clean_previous_months(db, now.year, now.month)
     target_year = year or now.year
     target_month = month or now.month

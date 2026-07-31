@@ -8,7 +8,7 @@ from app.models import MessMonth, User, DailyMeal, Expense, Deposit
 from app.schemas import MonthSummaryResponse, MemberSummary
 from app.security import get_current_user
 
-from app.month_utils import get_or_create_mess_month, auto_clean_previous_months
+from app.month_utils import get_or_create_mess_month, auto_clean_previous_months, get_current_local_now
 
 router = APIRouter(prefix="/api/v1/summary", tags=["Summary"])
 
@@ -19,7 +19,7 @@ def get_month_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    now = datetime.now()
+    now = get_current_local_now()
     target_year = year or now.year
     target_month = month or now.month
 

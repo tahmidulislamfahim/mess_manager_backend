@@ -6,6 +6,8 @@ from app.models import MessMonth, User
 from app.schemas import AssignManagerRequest, MessMonthOut
 from app.security import get_current_user, require_roles
 
+from app.month_utils import get_current_local_now, get_or_create_mess_month
+
 router = APIRouter(prefix="/api/v1/months", tags=["Mess Months"])
 
 @router.post("/assign-manager", response_model=MessMonthOut)
@@ -14,7 +16,7 @@ def assign_manager(
     db: Session = Depends(get_db),
     admin: User = Depends(require_roles(["SUPER_ADMIN"]))
 ):
-    now = datetime.now()
+    now = get_current_local_now()
     target_year = req.year if req.year else now.year
     target_month = req.month if req.month else now.month
 
@@ -33,22 +35,8 @@ def assign_manager(
     
     db.commit()
 
-    mess_month = db.query(MessMonth).filter(
-        MessMonth.year == target_year,
-        MessMonth.month == target_month
-    ).first()
-
-    if mess_month:
-        mess_month.manager_id = req.user_id
-    else:
-        mess_month = MessMonth(
-            year=target_year,
-            month=target_month,
-            manager_id=req.user_id,
-            is_closed=False
-        )
-        db.add(mess_month)
-
+    mess_month = get_or_create_mess_month(db, target_year, target_month, fallback_user_id=req.user_id)
+    mess_month.manager_id = req.user_id
     db.commit()
     db.refresh(mess_month)
 
@@ -66,25 +54,8 @@ def get_current_month(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    now = datetime.now()
-    mess_month = db.query(MessMonth).filter(
-        MessMonth.year == now.year,
-        MessMonth.month == now.month
-    ).first()
-
-    if not mess_month:
-        # Create a default month with Super Admin or current user as manager if none exists
-        default_manager = db.query(User).filter(User.role == "SUPER_ADMIN").first()
-        manager_id = default_manager.id if default_manager else current_user.id
-        mess_month = MessMonth(
-            year=now.year,
-            month=now.month,
-            manager_id=manager_id,
-            is_closed=False
-        )
-        db.add(mess_month)
-        db.commit()
-        db.refresh(mess_month)
+    now = get_current_local_now()
+    mess_month = get_or_create_mess_month(db, now.year, now.month, fallback_user_id=current_user.id)
 
     manager = db.query(User).filter(User.id == mess_month.manager_id).first()
     manager_name = manager.name if manager else "Unknown"

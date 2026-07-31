@@ -7,7 +7,7 @@ from app.models import MessMonth, Deposit, User
 from app.schemas import DepositCreate, DepositOut, DepositUpdate
 from app.security import get_current_user, require_roles
 
-from app.month_utils import get_or_create_mess_month, auto_clean_previous_months
+from app.month_utils import get_or_create_mess_month, auto_clean_previous_months, get_current_local_now
 
 router = APIRouter(prefix="/api/v1/deposits", tags=["Deposits"])
 
@@ -17,7 +17,7 @@ def create_deposit(
     db: Session = Depends(get_db),
     manager: User = Depends(require_roles(["SUPER_ADMIN", "MANAGER"]))
 ):
-    dep_date = dep_in.date or datetime.now().date()
+    dep_date = dep_in.date or get_current_local_now().date()
     target_user = db.query(User).filter(User.id == dep_in.user_id, User.is_active == True).first()
     if not target_user:
         raise HTTPException(status_code=404, detail="Target user not found")
@@ -53,7 +53,7 @@ def list_deposits(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    now = datetime.now()
+    now = get_current_local_now()
     auto_clean_previous_months(db, now.year, now.month)
     target_year = year or now.year
     target_month = month or now.month
