@@ -48,3 +48,8 @@ app.include_router(summary.router)
 @app.get("/")
 def read_root():
     return {"message": "Mess Meal Management API is running", "docs": "/docs"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
