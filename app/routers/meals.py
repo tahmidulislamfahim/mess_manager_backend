@@ -7,26 +7,12 @@ from app.models import MessMonth, DailyMeal, User
 from app.schemas import DailyMealBatchRequest, DailyMealOut
 from app.security import get_current_user, require_roles
 
+from app.month_utils import get_or_create_mess_month as get_or_create_month
+
 router = APIRouter(prefix="/api/v1/meals", tags=["Meals"])
 
 def get_or_create_mess_month(db: Session, target_date: date) -> MessMonth:
-    mess_month = db.query(MessMonth).filter(
-        MessMonth.year == target_date.year,
-        MessMonth.month == target_date.month
-    ).first()
-    if not mess_month:
-        admin = db.query(User).filter(User.role == "SUPER_ADMIN").first()
-        manager_id = admin.id if admin else 1
-        mess_month = MessMonth(
-            year=target_date.year,
-            month=target_date.month,
-            manager_id=manager_id,
-            is_closed=False
-        )
-        db.add(mess_month)
-        db.commit()
-        db.refresh(mess_month)
-    return mess_month
+    return get_or_create_month(db, target_date.year, target_date.month)
 
 @router.post("/batch", response_model=List[DailyMealOut])
 def batch_update_meals(

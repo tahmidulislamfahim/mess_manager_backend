@@ -8,6 +8,8 @@ from app.models import MessMonth, User, DailyMeal, Expense, Deposit
 from app.schemas import MonthSummaryResponse, MemberSummary
 from app.security import get_current_user
 
+from app.month_utils import get_or_create_mess_month, auto_clean_previous_months
+
 router = APIRouter(prefix="/api/v1/summary", tags=["Summary"])
 
 @router.get("", response_model=MonthSummaryResponse)
@@ -21,23 +23,7 @@ def get_month_summary(
     target_year = year or now.year
     target_month = month or now.month
 
-    mess_month = db.query(MessMonth).filter(
-        MessMonth.year == target_year,
-        MessMonth.month == target_month
-    ).first()
-
-    if not mess_month:
-        admin = db.query(User).filter(User.role == "SUPER_ADMIN").first()
-        manager_id = admin.id if admin else current_user.id
-        mess_month = MessMonth(
-            year=target_year,
-            month=target_month,
-            manager_id=manager_id,
-            is_closed=False
-        )
-        db.add(mess_month)
-        db.commit()
-        db.refresh(mess_month)
+    mess_month = get_or_create_mess_month(db, target_year, target_month, fallback_user_id=current_user.id)
 
     manager = db.query(User).filter(User.id == mess_month.manager_id).first()
     manager_name = manager.name if manager else "N/A"

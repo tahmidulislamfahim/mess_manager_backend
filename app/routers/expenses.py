@@ -7,6 +7,8 @@ from app.models import MessMonth, Expense, User
 from app.schemas import ExpenseCreate, ExpenseOut, ExpenseUpdate
 from app.security import get_current_user, require_roles
 
+from app.month_utils import get_or_create_mess_month, auto_clean_previous_months
+
 router = APIRouter(prefix="/api/v1/expenses", tags=["Expenses"])
 
 @router.post("", response_model=ExpenseOut, status_code=status.HTTP_201_CREATED)
@@ -16,23 +18,7 @@ def create_expense(
     manager: User = Depends(require_roles(["SUPER_ADMIN", "MANAGER"]))
 ):
     exp_date = exp_in.date or datetime.now().date()
-    mess_month = db.query(MessMonth).filter(
-        MessMonth.year == exp_date.year,
-        MessMonth.month == exp_date.month
-    ).first()
-
-    if not mess_month:
-        admin = db.query(User).filter(User.role == "SUPER_ADMIN").first()
-        manager_id = admin.id if admin else manager.id
-        mess_month = MessMonth(
-            year=exp_date.year,
-            month=exp_date.month,
-            manager_id=manager_id,
-            is_closed=False
-        )
-        db.add(mess_month)
-        db.commit()
-        db.refresh(mess_month)
+    mess_month = get_or_create_mess_month(db, exp_date.year, exp_date.month, fallback_user_id=manager.id)
 
     if mess_month.is_closed:
         raise HTTPException(status_code=400, detail="Target mess month is closed")
@@ -57,6 +43,7 @@ def list_expenses(
     current_user: User = Depends(get_current_user)
 ):
     now = datetime.now()
+    auto_clean_previous_months(db, now.year, now.month)
     target_year = year or now.year
     target_month = month or now.month
 
