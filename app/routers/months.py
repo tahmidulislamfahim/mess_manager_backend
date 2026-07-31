@@ -22,10 +22,16 @@ def assign_manager(
     if not target_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target user not found")
 
-    # Update role of user to MANAGER if not SUPER_ADMIN
+    # 1. Revert all current MANAGER users (except SUPER_ADMIN) to MEMBER
+    existing_managers = db.query(User).filter(User.role == "MANAGER").all()
+    for mgr in existing_managers:
+        mgr.role = "MEMBER"
+
+    # 2. Update role of target user to MANAGER if not SUPER_ADMIN
     if target_user.role != "SUPER_ADMIN":
         target_user.role = "MANAGER"
-        db.commit()
+    
+    db.commit()
 
     mess_month = db.query(MessMonth).filter(
         MessMonth.year == target_year,

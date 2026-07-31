@@ -70,6 +70,11 @@ class ExpenseCreate(BaseModel):
     description: str
     date: Optional[date] = None
 
+class ExpenseUpdate(BaseModel):
+    amount: Optional[float] = None
+    description: Optional[str] = None
+    date: Optional[date] = None
+
 class ExpenseOut(BaseModel):
     id: int
     month_id: int
@@ -83,6 +88,11 @@ class ExpenseOut(BaseModel):
 class DepositCreate(BaseModel):
     user_id: int
     amount: float
+    date: Optional[date] = None
+
+class DepositUpdate(BaseModel):
+    user_id: Optional[int] = None
+    amount: Optional[float] = None
     date: Optional[date] = None
 
 class DepositOut(BaseModel):

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import MessMonth, Expense, User
-from app.schemas import ExpenseCreate, ExpenseOut
+from app.schemas import ExpenseCreate, ExpenseOut, ExpenseUpdate
 from app.security import get_current_user, require_roles
 
 router = APIRouter(prefix="/api/v1/expenses", tags=["Expenses"])
@@ -69,3 +69,66 @@ def list_expenses(
         return []
 
     return db.query(Expense).filter(Expense.month_id == mess_month.id).order_by(Expense.date.desc()).all()
+
+@router.put("/{expense_id}", response_model=ExpenseOut)
+def update_expense(
+    expense_id: int,
+    exp_in: ExpenseUpdate,
+    db: Session = Depends(get_db),
+    manager: User = Depends(require_roles(["SUPER_ADMIN", "MANAGER"]))
+):
+    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    mess_month = db.query(MessMonth).filter(MessMonth.id == expense.month_id).first()
+    if mess_month and mess_month.is_closed:
+        raise HTTPException(status_code=400, detail="Target mess month is closed")
+
+    if exp_in.amount is not None:
+        expense.amount = exp_in.amount
+    if exp_in.description is not None:
+        expense.description = exp_in.description
+    if exp_in.date is not None:
+        # Check if date moved to different month
+        new_date = exp_in.date
+        new_month = db.query(MessMonth).filter(
+            MessMonth.year == new_date.year,
+            MessMonth.month == new_date.month
+        ).first()
+        if not new_month:
+            admin = db.query(User).filter(User.role == "SUPER_ADMIN").first()
+            manager_id = admin.id if admin else manager.id
+            new_month = MessMonth(
+                year=new_date.year,
+                month=new_date.month,
+                manager_id=manager_id,
+                is_closed=False
+            )
+            db.add(new_month)
+            db.commit()
+            db.refresh(new_month)
+        expense.month_id = new_month.id
+        expense.date = new_date
+
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+@router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_expense(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    manager: User = Depends(require_roles(["SUPER_ADMIN", "MANAGER"]))
+):
+    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    mess_month = db.query(MessMonth).filter(MessMonth.id == expense.month_id).first()
+    if mess_month and mess_month.is_closed:
+        raise HTTPException(status_code=400, detail="Target mess month is closed")
+
+    db.delete(expense)
+    db.commit()
+    return None
