@@ -45,11 +45,11 @@ app.include_router(expenses.router)
 app.include_router(deposits.router)
 app.include_router(summary.router)
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {"message": "Mess Meal Management API is running", "docs": "/docs"}
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "ok"}
 
