@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date as DateType
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr, ConfigDict
 
@@ -50,7 +50,7 @@ class DailyMealItem(BaseModel):
     dinner_count: int = 1
 
 class DailyMealBatchRequest(BaseModel):
-    date: date
+    date: DateType
     meals: List[DailyMealItem]
 
 class DailyMealOut(BaseModel):
@@ -58,7 +58,7 @@ class DailyMealOut(BaseModel):
     month_id: int
     user_id: int
     user_name: str
-    date: date
+    date: DateType
     lunch_count: int
     dinner_count: int
 
@@ -68,19 +68,19 @@ class DailyMealOut(BaseModel):
 class ExpenseCreate(BaseModel):
     amount: float
     description: str
-    date: Optional[date] = None
+    date: Optional[DateType] = None
 
 class ExpenseUpdate(BaseModel):
     amount: Optional[float] = None
     description: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[DateType] = None
 
 class ExpenseOut(BaseModel):
     id: int
     month_id: int
     amount: float
     description: str
-    date: date
+    date: DateType
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,12 +88,12 @@ class ExpenseOut(BaseModel):
 class DepositCreate(BaseModel):
     user_id: int
     amount: float
-    date: Optional[date] = None
+    date: Optional[DateType] = None
 
 class DepositUpdate(BaseModel):
     user_id: Optional[int] = None
     amount: Optional[float] = None
-    date: Optional[date] = None
+    date: Optional[DateType] = None
 
 class DepositOut(BaseModel):
     id: int
@@ -101,7 +101,7 @@ class DepositOut(BaseModel):
     user_id: int
     user_name: str
     amount: float
-    date: date
+    date: DateType
 
     model_config = ConfigDict(from_attributes=True)
 
