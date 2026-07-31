@@ -1,0 +1,94 @@
+from datetime import datetime
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models import MessMonth, Deposit, User
+from app.schemas import DepositCreate, DepositOut
+from app.security import get_current_user, require_roles
+
+router = APIRouter(prefix="/api/v1/deposits", tags=["Deposits"])
+
+@router.post("", response_model=DepositOut, status_code=status.HTTP_201_CREATED)
+def create_deposit(
+    dep_in: DepositCreate,
+    db: Session = Depends(get_db),
+    manager: User = Depends(require_roles(["SUPER_ADMIN", "MANAGER"]))
+):
+    dep_date = dep_in.date or datetime.now().date()
+    target_user = db.query(User).filter(User.id == dep_in.user_id, User.is_active == True).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found")
+
+    mess_month = db.query(MessMonth).filter(
+        MessMonth.year == dep_date.year,
+        MessMonth.month == dep_date.month
+    ).first()
+
+    if not mess_month:
+        admin = db.query(User).filter(User.role == "SUPER_ADMIN").first()
+        manager_id = admin.id if admin else manager.id
+        mess_month = MessMonth(
+            year=dep_date.year,
+            month=dep_date.month,
+            manager_id=manager_id,
+            is_closed=False
+        )
+        db.add(mess_month)
+        db.commit()
+        db.refresh(mess_month)
+
+    if mess_month.is_closed:
+        raise HTTPException(status_code=400, detail="Target mess month is closed")
+
+    new_dep = Deposit(
+        month_id=mess_month.id,
+        user_id=dep_in.user_id,
+        amount=dep_in.amount,
+        date=dep_date
+    )
+    db.add(new_dep)
+    db.commit()
+    db.refresh(new_dep)
+
+    return DepositOut(
+        id=new_dep.id,
+        month_id=new_dep.month_id,
+        user_id=new_dep.user_id,
+        user_name=target_user.name,
+        amount=new_dep.amount,
+        date=new_dep.date
+    )
+
+@router.get("", response_model=List[DepositOut])
+def list_deposits(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    now = datetime.now()
+    target_year = year or now.year
+    target_month = month or now.month
+
+    mess_month = db.query(MessMonth).filter(
+        MessMonth.year == target_year,
+        MessMonth.month == target_month
+    ).first()
+
+    if not mess_month:
+        return []
+
+    deposits = db.query(Deposit).filter(Deposit.month_id == mess_month.id).order_by(Deposit.date.desc()).all()
+    user_map = {u.id: u.name for u in db.query(User).all()}
+
+    return [
+        DepositOut(
+            id=d.id,
+            month_id=d.month_id,
+            user_id=d.user_id,
+            user_name=user_map.get(d.user_id, "Unknown"),
+            amount=d.amount,
+            date=d.date
+        ) for d in deposits
+    ]
