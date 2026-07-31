@@ -56,7 +56,7 @@ def create_user(
 def list_users(
     include_super_admin: bool = False,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(["SUPER_ADMIN", "MANAGER"]))
+    current_user: User = Depends(get_current_user)
 ):
     query = db.query(User).filter(User.is_active == True)
     if not include_super_admin:
