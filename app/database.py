@@ -3,12 +3,26 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'mess.db')}"
+TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL")
+TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
-)
+if TURSO_DATABASE_URL:
+    url = TURSO_DATABASE_URL
+    if url.startswith("libsql://"):
+        url = url.replace("libsql://", "sqlite+libsql://")
+    if TURSO_AUTH_TOKEN and "authToken=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}authToken={TURSO_AUTH_TOKEN}"
+    
+    print(f"[Database] Connecting to Turso Cloud Database...")
+    engine = create_engine(url, connect_args={"check_same_thread": False})
+else:
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'mess.db')}"
+    print(f"[Database] Connecting to local SQLite file...")
+    engine = create_engine(
+        DATABASE_URL, connect_args={"check_same_thread": False}
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
