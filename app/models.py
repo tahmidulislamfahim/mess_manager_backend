@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float, Date, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, Float, Date, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -73,3 +73,17 @@ class Deposit(Base):
 
     month = relationship("MessMonth", back_populates="deposits")
     user = relationship("User", back_populates="deposits")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    type = Column(String, default="SYSTEM")  # EXPENSE, DEPOSIT, MEALS, MANAGER, SYSTEM
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, nullable=False)
+
+    user = relationship("User")

@@ -6,6 +6,8 @@ from app.models import User, DailyMeal, Deposit, Expense, MessMonth
 from app.schemas import UserCreate, UserOut, UserProfileUpdate
 from app.security import get_password_hash, get_current_user, require_roles
 
+from app.notification_service import create_and_broadcast_notification
+
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 @router.get("/me", response_model=UserOut)
@@ -50,6 +52,14 @@ def create_user(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    create_and_broadcast_notification(
+        db,
+        title="New Roommate Joined",
+        message=f"Welcome {new_user.name} to the mess!",
+        notification_type="SYSTEM"
+    )
+
     return new_user
 
 @router.get("", response_model=List[UserOut])
@@ -95,6 +105,8 @@ def delete_user(
     if target_user.role == "SUPER_ADMIN":
         raise HTTPException(status_code=400, detail="Super Admin account cannot be deleted")
 
+    user_name = target_user.name
+
     # 1. Delete all daily meals for this user
     db.query(DailyMeal).filter(DailyMeal.user_id == user_id).delete()
 
@@ -111,4 +123,11 @@ def delete_user(
     db.delete(target_user)
     db.commit()
 
-    return {"message": f"User '{target_user.name}' and all associated meals and deposits were deleted successfully."}
+    create_and_broadcast_notification(
+        db,
+        title="Roommate Removed",
+        message=f"{user_name}'s account and data were removed",
+        notification_type="SYSTEM"
+    )
+
+    return {"message": f"User '{user_name}' and all associated meals and deposits were deleted successfully."}

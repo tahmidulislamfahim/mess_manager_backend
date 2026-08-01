@@ -9,6 +9,8 @@ from app.security import get_current_user, require_roles
 
 from app.month_utils import get_or_create_mess_month, auto_clean_previous_months, get_current_local_now
 
+from app.notification_service import create_and_broadcast_notification
+
 router = APIRouter(prefix="/api/v1/expenses", tags=["Expenses"])
 
 @router.post("", response_model=ExpenseOut, status_code=status.HTTP_201_CREATED)
@@ -32,6 +34,13 @@ def create_expense(
     db.add(new_exp)
     db.commit()
     db.refresh(new_exp)
+
+    create_and_broadcast_notification(
+        db,
+        title="Grocery Expense Logged",
+        message=f"৳{new_exp.amount} for '{new_exp.description}' logged by {manager.name}",
+        notification_type="EXPENSE"
+    )
 
     return new_exp
 
@@ -77,7 +86,6 @@ def update_expense(
     if exp_in.description is not None:
         expense.description = exp_in.description
     if exp_in.date is not None:
-        # Check if date moved to different month
         new_date = exp_in.date
         new_month = db.query(MessMonth).filter(
             MessMonth.year == new_date.year,
@@ -100,6 +108,14 @@ def update_expense(
 
     db.commit()
     db.refresh(expense)
+
+    create_and_broadcast_notification(
+        db,
+        title="Grocery Expense Updated",
+        message=f"Expense '{expense.description}' updated to ৳{expense.amount} by {manager.name}",
+        notification_type="EXPENSE"
+    )
+
     return expense
 
 @router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -116,6 +132,15 @@ def delete_expense(
     if mess_month and mess_month.is_closed:
         raise HTTPException(status_code=400, detail="Target mess month is closed")
 
+    exp_desc = expense.description
     db.delete(expense)
     db.commit()
+
+    create_and_broadcast_notification(
+        db,
+        title="Grocery Expense Deleted",
+        message=f"Expense '{exp_desc}' was removed by {manager.name}",
+        notification_type="EXPENSE"
+    )
+
     return None

@@ -1,4 +1,4 @@
-from datetime import date as DateType
+from datetime import date as DateType, datetime as DateTimeType
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr, ConfigDict
 
@@ -126,3 +126,18 @@ class MonthSummaryResponse(BaseModel):
     total_meals: int
     meal_rate: float
     member_summaries: List[MemberSummary]
+
+# Notification Schemas
+class NotificationOut(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    message: str
+    type: str
+    is_read: bool
+    created_at: DateTimeType
+
+    model_config = ConfigDict(from_attributes=True)
+
+class UnreadCountOut(BaseModel):
+    unread_count: int

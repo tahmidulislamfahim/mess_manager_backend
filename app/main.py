@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base, SessionLocal
 from app.models import User, MessMonth
 from app.security import get_password_hash
-from app.routers import auth, users, months, meals, expenses, deposits, summary
+from app.routers import auth, users, months, meals, expenses, deposits, summary, notifications
 
 Base.metadata.create_all(bind=engine)
 
@@ -44,6 +44,7 @@ app.include_router(meals.router)
 app.include_router(expenses.router)
 app.include_router(deposits.router)
 app.include_router(summary.router)
+app.include_router(notifications.router)
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def read_root():

@@ -9,6 +9,8 @@ from app.security import get_current_user, require_roles
 
 from app.month_utils import get_or_create_mess_month as get_or_create_month
 
+from app.notification_service import create_and_broadcast_notification
+
 router = APIRouter(prefix="/api/v1/meals", tags=["Meals"])
 
 def get_or_create_mess_month(db: Session, target_date: date) -> MessMonth:
@@ -61,6 +63,13 @@ def batch_update_meals(
             lunch_count=daily_meal.lunch_count,
             dinner_count=daily_meal.dinner_count
         ))
+
+    create_and_broadcast_notification(
+        db,
+        title="Daily Meals Logged",
+        message=f"Daily meals for {req.date} updated by {manager.name}",
+        notification_type="MEALS"
+    )
 
     return results
 

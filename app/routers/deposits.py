@@ -9,6 +9,8 @@ from app.security import get_current_user, require_roles
 
 from app.month_utils import get_or_create_mess_month, auto_clean_previous_months, get_current_local_now
 
+from app.notification_service import create_and_broadcast_notification
+
 router = APIRouter(prefix="/api/v1/deposits", tags=["Deposits"])
 
 @router.post("", response_model=DepositOut, status_code=status.HTTP_201_CREATED)
@@ -36,6 +38,13 @@ def create_deposit(
     db.add(new_dep)
     db.commit()
     db.refresh(new_dep)
+
+    create_and_broadcast_notification(
+        db,
+        title="Member Deposit Logged",
+        message=f"৳{new_dep.amount} deposited for {target_user.name} by {manager.name}",
+        notification_type="DEPOSIT"
+    )
 
     return DepositOut(
         id=new_dep.id,
@@ -131,6 +140,13 @@ def update_deposit(
     target_user = db.query(User).filter(User.id == deposit.user_id).first()
     user_name = target_user.name if target_user else "Unknown"
 
+    create_and_broadcast_notification(
+        db,
+        title="Deposit Updated",
+        message=f"Deposit for {user_name} updated to ৳{deposit.amount} by {manager.name}",
+        notification_type="DEPOSIT"
+    )
+
     return DepositOut(
         id=deposit.id,
         month_id=deposit.month_id,
@@ -154,6 +170,17 @@ def delete_deposit(
     if mess_month and mess_month.is_closed:
         raise HTTPException(status_code=400, detail="Target mess month is closed")
 
+    target_user = db.query(User).filter(User.id == deposit.user_id).first()
+    user_name = target_user.name if target_user else "Unknown"
+
     db.delete(deposit)
     db.commit()
+
+    create_and_broadcast_notification(
+        db,
+        title="Deposit Deleted",
+        message=f"Deposit for {user_name} removed by {manager.name}",
+        notification_type="DEPOSIT"
+    )
+
     return None

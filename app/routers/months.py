@@ -8,6 +8,8 @@ from app.security import get_current_user, require_roles
 
 from app.month_utils import get_current_local_now, get_or_create_mess_month
 
+from app.notification_service import create_and_broadcast_notification
+
 router = APIRouter(prefix="/api/v1/months", tags=["Mess Months"])
 
 @router.post("/assign-manager", response_model=MessMonthOut)
@@ -39,6 +41,13 @@ def assign_manager(
     mess_month.manager_id = req.user_id
     db.commit()
     db.refresh(mess_month)
+
+    create_and_broadcast_notification(
+        db,
+        title="Mess Manager Assigned",
+        message=f"{target_user.name} has been assigned as the Mess Manager",
+        notification_type="MANAGER"
+    )
 
     return MessMonthOut(
         id=mess_month.id,
