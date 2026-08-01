@@ -61,3 +61,8 @@ def read_root():
 def health_check():
     return {"status": "ok"}
 
+import socketio
+from app.socketio_server import sio
+
+socket_app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io")
+

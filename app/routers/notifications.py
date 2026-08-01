@@ -7,42 +7,9 @@ from app.database import get_db
 from app.models import Notification, User
 from app.schemas import NotificationOut, UnreadCountOut
 from app.security import get_current_user, SECRET_KEY, ALGORITHM
-from app.notification_service import manager, set_main_loop
+from app.notification_service import notify_unread_count_changed
 
 router = APIRouter(tags=["Notifications"])
-
-@router.websocket("/api/v1/ws/notifications")
-async def websocket_notifications(
-    websocket: WebSocket,
-    token: str = Query(...),
-    db: Session = Depends(get_db)
-):
-    set_main_loop(asyncio.get_running_loop())
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
-        user = db.query(User).filter(User.email == email).first()
-        if user is None:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
-    except Exception:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    await manager.connect(websocket, user.id)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            if data == "ping":
-                await websocket.send_text("pong")
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, user.id)
-    except Exception:
-        manager.disconnect(websocket, user.id)
-
 
 @router.get("/api/v1/notifications", response_model=List[NotificationOut])
 def list_notifications(
@@ -83,6 +50,9 @@ def mark_notification_as_read(
     notif.is_read = True
     db.commit()
     db.refresh(notif)
+
+    notify_unread_count_changed(db, current_user.id)
+
     return notif
 
 
@@ -97,4 +67,7 @@ def mark_all_notifications_as_read(
     ).update({"is_read": True})
 
     db.commit()
+
+    notify_unread_count_changed(db, current_user.id)
+
     return {"detail": "All notifications marked as read"}
