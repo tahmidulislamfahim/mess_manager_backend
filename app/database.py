@@ -7,15 +7,21 @@ TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
 if TURSO_DATABASE_URL:
+    try:
+        import libsql_experimental
+    except ImportError:
+        import sqlite3 as libsql_experimental
+
     url = TURSO_DATABASE_URL
     if url.startswith("libsql://"):
-        url = url.replace("libsql://", "sqlite+libsql://")
-    if TURSO_AUTH_TOKEN and "authToken=" not in url:
-        sep = "&" if "?" in url else "?"
-        url = f"{url}{sep}authToken={TURSO_AUTH_TOKEN}"
-    
+        url = url.replace("libsql://", "https://")
+
     print(f"[Database] Connecting to Turso Cloud Database...")
-    engine = create_engine(url, connect_args={"check_same_thread": False})
+    
+    def connect_turso():
+        return libsql_experimental.connect(database=url, auth_token=TURSO_AUTH_TOKEN)
+
+    engine = create_engine("sqlite://", creator=connect_turso, connect_args={"check_same_thread": False})
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'mess.db')}"
