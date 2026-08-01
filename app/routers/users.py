@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import User, DailyMeal, Deposit, Expense, MessMonth
+from app.models import User, DailyMeal, Deposit, Expense, MessMonth, Notification
 from app.schemas import UserCreate, UserOut, UserProfileUpdate
 from app.security import get_password_hash, get_current_user, require_roles
 
@@ -20,9 +20,9 @@ def update_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if profile_in.name is not None and profile_in.name.strip():
+    if profile_in.name and profile_in.name.strip():
         current_user.name = profile_in.name.strip()
-    if profile_in.password is not None and profile_in.password.strip():
+    if profile_in.password and profile_in.password.strip():
         current_user.hashed_password = get_password_hash(profile_in.password.strip())
     
     db.commit()
@@ -79,15 +79,16 @@ def wipe_database(
     admin: User = Depends(require_roles(["SUPER_ADMIN"]))
 ):
     """
-    Super Admin only endpoint to completely wipe database mess records and non-super-admin users.
+    Super Admin only endpoint to completely wipe database mess records, notifications, and non-super-admin users.
     """
+    db.query(Notification).delete()
     db.query(Expense).delete()
     db.query(Deposit).delete()
     db.query(DailyMeal).delete()
     db.query(MessMonth).delete()
     db.query(User).filter(User.role != "SUPER_ADMIN").delete()
     db.commit()
-    return {"message": "Database wiped successfully. All mess data and roommate accounts removed except Super Admin."}
+    return {"message": "Database wiped successfully. All mess data, notifications, and roommate accounts removed except Super Admin."}
 
 @router.delete("/{user_id}", status_code=status.HTTP_200_OK)
 def delete_user(
