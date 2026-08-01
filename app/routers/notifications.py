@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models import Notification, User
 from app.schemas import NotificationOut, UnreadCountOut
 from app.security import get_current_user, SECRET_KEY, ALGORITHM
-from app.notification_service import manager
+from app.notification_service import manager, set_main_loop
 
 router = APIRouter(tags=["Notifications"])
 
@@ -17,6 +17,7 @@ async def websocket_notifications(
     token: str = Query(...),
     db: Session = Depends(get_db)
 ):
+    set_main_loop(asyncio.get_running_loop())
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
@@ -34,8 +35,9 @@ async def websocket_notifications(
     await manager.connect(websocket, user.id)
     try:
         while True:
-            # Keep connection open and listen for ping/heartbeats
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(websocket, user.id)
     except Exception:

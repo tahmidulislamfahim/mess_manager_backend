@@ -5,6 +5,9 @@ from app.models import User, MessMonth
 from app.security import get_password_hash
 from app.routers import auth, users, months, meals, expenses, deposits, summary, notifications
 
+import asyncio
+from app.notification_service import set_main_loop
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mess Meal Management API", version="1.0.0")
@@ -16,6 +19,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def capture_main_loop():
+    set_main_loop(asyncio.get_running_loop())
 
 @app.on_event("startup")
 def startup_db_seed():
