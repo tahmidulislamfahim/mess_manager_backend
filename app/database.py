@@ -17,12 +17,12 @@ TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 if TURSO_DATABASE_URL:
     raw_url = TURSO_DATABASE_URL.strip()
 
-    # Extract token from TURSO_AUTH_TOKEN env var, or fallback to parsing authToken from raw_url query string
+    # Extract token from TURSO_AUTH_TOKEN env var, or fallback to parsing from raw_url query string
     token = (TURSO_AUTH_TOKEN or "").strip()
     if not token and "?" in raw_url:
         parsed = urlparse(raw_url)
         qs = parse_qs(parsed.query)
-        token = (qs.get("authToken") or qs.get("auth_token") or [""])[0].strip()
+        token = (qs.get("auth_token") or qs.get("authToken") or [""])[0].strip()
 
     clean_host = raw_url
     for prefix in ["sqlite+libsql://", "sqlite+https://", "libsql://", "https://", "http://"]:
@@ -36,10 +36,17 @@ if TURSO_DATABASE_URL:
     clean_host = clean_host.rstrip("/")
     clean_host = re.sub(r'\.aws-[a-z0-9-]+\.turso\.io', '.turso.io', clean_host)
 
-    turso_engine_url = f"sqlite+libsql://{clean_host}?authToken={token}&secure=true"
+    # Note: sqlalchemy-libsql reads `auth_token` (snake_case) from url.query
+    turso_engine_url = f"sqlite+libsql://{clean_host}?auth_token={token}&secure=true"
 
     print(f"[Database] Connecting to Turso Cloud Database: {clean_host} (token len: {len(token)})...")
-    engine = create_engine(turso_engine_url, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        turso_engine_url,
+        connect_args={
+            "check_same_thread": False,
+            "auth_token": token
+        }
+    )
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'mess.db')}"
