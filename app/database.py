@@ -1,4 +1,5 @@
 import os
+import re
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -16,6 +17,9 @@ if TURSO_DATABASE_URL:
     
     if "?" in clean_url:
         clean_url = clean_url.split("?")[0]
+
+    # Strip AWS region subdomain (e.g. .aws-ap-south-1) to avoid 308 redirects from Turso edge proxy
+    clean_url = re.sub(r'\.aws-[a-z0-9-]+\.turso\.io', '.turso.io', clean_url)
         
     token = TURSO_AUTH_TOKEN or ""
     turso_engine_url = f"sqlite+libsql://{clean_url}?authToken={token}"

@@ -33,23 +33,26 @@ async def capture_main_loop():
 
 @app.on_event("startup")
 def startup_db_seed():
-    db = SessionLocal()
     try:
-        admin = db.query(User).filter(User.email == "admin@mess.com").first()
-        if not admin:
-            admin = User(
-                name="Super Admin",
-                email="admin@mess.com",
-                hashed_password=get_password_hash("admin123"),
-                role="SUPER_ADMIN",
-                is_active=True
-            )
-            db.add(admin)
-            db.commit()
-            db.refresh(admin)
-            print("Default Super Admin created: admin@mess.com / admin123")
-    finally:
-        db.close()
+        db = SessionLocal()
+        try:
+            admin = db.query(User).filter(User.email == "admin@mess.com").first()
+            if not admin:
+                admin = User(
+                    name="Super Admin",
+                    email="admin@mess.com",
+                    hashed_password=get_password_hash("admin123"),
+                    role="SUPER_ADMIN",
+                    is_active=True
+                )
+                db.add(admin)
+                db.commit()
+                db.refresh(admin)
+                print("Default Super Admin created: admin@mess.com / admin123")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[DB Seed Warning] Startup db seed deferred: {e}")
 
 app.include_router(auth.router)
 app.include_router(users.router)
@@ -72,4 +75,3 @@ import socketio
 from app.socketio_server import sio
 
 app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io")
-
