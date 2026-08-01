@@ -9,15 +9,17 @@ TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 if TURSO_DATABASE_URL:
     url = TURSO_DATABASE_URL
     if url.startswith("libsql://"):
-        url = url.replace("libsql://", "sqlite+libsql://")
-    elif not url.startswith("sqlite+libsql://"):
-        url = f"sqlite+libsql://{url}"
+        url = url.replace("libsql://", "sqlite+https://")
+    elif url.startswith("sqlite+libsql://"):
+        url = url.replace("sqlite+libsql://", "sqlite+https://")
+    elif not url.startswith("sqlite+https://"):
+        url = f"sqlite+https://{url}"
 
     if TURSO_AUTH_TOKEN and "authToken=" not in url:
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}authToken={TURSO_AUTH_TOKEN}"
     
-    print(f"[Database] Connecting to Turso Cloud Database...")
+    print(f"[Database] Connecting to Turso Cloud Database over HTTPS...")
     engine = create_engine(url, connect_args={"check_same_thread": False})
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
