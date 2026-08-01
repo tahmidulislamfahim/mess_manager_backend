@@ -13,6 +13,7 @@ except ImportError:
     import sqlite3 as libsql_experimental
 
 from sqlalchemy import create_engine
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -50,7 +51,12 @@ if TURSO_DATABASE_URL:
     engine = create_engine(
         "sqlite+libsql://",
         creator=get_turso_connection,
-        connect_args={"check_same_thread": False}
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=300,
+        pool_pre_ping=True
     )
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
