@@ -25,11 +25,18 @@ if TURSO_DATABASE_URL:
         clean_url = clean_url.split("?")[0]
 
     clean_url = clean_url.rstrip("/")
+    clean_url = re.sub(r'\.aws-[a-z0-9-]+\.turso\.io', '.turso.io', clean_url)
 
-    turso_engine_url = f"sqlite+libsql://{clean_url}?authToken={token}&secure=true"
+    turso_engine_url = f"sqlite+libsql://{clean_url}?auth_token={token}&authToken={token}&secure=true"
 
     print(f"[Database] Connecting to Turso Cloud Database via sqlalchemy-libsql: {clean_url}...")
-    engine = create_engine(turso_engine_url, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        turso_engine_url,
+        connect_args={
+            "check_same_thread": False,
+            "auth_token": token
+        }
+    )
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'mess.db')}"
