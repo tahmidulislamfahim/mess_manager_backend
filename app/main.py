@@ -8,7 +8,14 @@ from app.routers import auth, users, months, meals, expenses, deposits, summary,
 import asyncio
 from app.notification_service import set_main_loop
 
-Base.metadata.create_all(bind=engine)
+try:
+    print("[Startup] Initializing database tables...")
+    Base.metadata.create_all(bind=engine)
+    print("[Startup] Database tables initialized successfully!")
+except Exception as e:
+    print(f"[Startup Exception] Table creation error: {e}")
+    import traceback
+    traceback.print_exc()
 
 app = FastAPI(title="Mess Meal Management API", version="1.0.0")
 
