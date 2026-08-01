@@ -1,4 +1,9 @@
 import os
+import re
+try:
+    import sqlalchemy_libsql
+except ImportError:
+    pass
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -7,11 +12,6 @@ TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
 if TURSO_DATABASE_URL:
-    try:
-        import libsql_experimental
-    except ImportError:
-        import sqlite3 as libsql_experimental
-
     url = TURSO_DATABASE_URL.strip()
     token = (TURSO_AUTH_TOKEN or "").strip()
 
@@ -25,18 +25,11 @@ if TURSO_DATABASE_URL:
         clean_url = clean_url.split("?")[0]
 
     clean_url = clean_url.rstrip("/")
-    https_turso_url = f"https://{clean_url}"
 
-    print(f"[Database] Connecting to Turso Cloud Database over HTTPS: {https_turso_url}...")
+    turso_engine_url = f"sqlite+libsql://{clean_url}?authToken={token}"
 
-    def get_turso_connection():
-        return libsql_experimental.connect(https_turso_url, auth_token=token)
-
-    engine = create_engine(
-        "sqlite://",
-        creator=get_turso_connection,
-        connect_args={"check_same_thread": False}
-    )
+    print(f"[Database] Connecting to Turso Cloud Database via sqlalchemy-libsql: {clean_url}...")
+    engine = create_engine(turso_engine_url, connect_args={"check_same_thread": False})
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'mess.db')}"
