@@ -28,20 +28,18 @@ def _get_loop() -> Optional[asyncio.AbstractEventLoop]:
 
 async def _emit_notification_to_user(user_id: int, notif_payload: dict, unread_count: int):
     try:
-        # Emit new notification event to specific user room
+        # Emit single, targeted new_notification event to user's room
         await sio.emit("new_notification", notif_payload, room=f"user_{user_id}")
-        # ALSO emit broadcast so any connected client receives it
-        await sio.emit("new_notification", notif_payload)
-        # Emit updated unread count event to specific user room
+        # Emit updated unread count event to user's room
         await sio.emit("unread_count_updated", {"unread_count": unread_count}, room=f"user_{user_id}")
-        print(f"[Socket.IO] Successfully emitted notification to user {user_id} and broadcast")
+        print(f"[Socket.IO] Emitted notification to room user_{user_id} (unread: {unread_count})")
     except Exception as e:
-        print(f"[Socket.IO] Error emitting notification: {e}")
+        print(f"[Socket.IO] Error emitting notification to user {user_id}: {e}")
 
 async def _emit_unread_count_to_user(user_id: int, unread_count: int):
     try:
         await sio.emit("unread_count_updated", {"unread_count": unread_count}, room=f"user_{user_id}")
-        print(f"[Socket.IO] Successfully emitted unread_count {unread_count} to user {user_id}")
+        print(f"[Socket.IO] Emitted unread_count {unread_count} to room user_{user_id}")
     except Exception as e:
         print(f"[Socket.IO] Error emitting unread_count: {e}")
 
