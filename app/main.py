@@ -64,5 +64,5 @@ def health_check():
 import socketio
 from app.socketio_server import sio
 
-socket_app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io")
+app = socketio.ASGIApp(sio, other_asgi_app=app, socketio_path="/socket.io")
 

@@ -17,10 +17,14 @@ async def connect(sid, environ, auth=None):
     token = None
     if auth and isinstance(auth, dict) and 'token' in auth:
         token = auth['token']
-    elif 'QUERY_STRING' in environ:
+    if not token and 'QUERY_STRING' in environ:
         qs = urllib.parse.parse_qs(environ['QUERY_STRING'])
         if 'token' in qs and len(qs['token']) > 0:
             token = qs['token'][0]
+    if not token and 'HTTP_AUTHORIZATION' in environ:
+        auth_header = environ['HTTP_AUTHORIZATION']
+        if auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
 
     if not token:
         print(f"[Socket.IO] Connection rejected: No token provided (sid: {sid})")
