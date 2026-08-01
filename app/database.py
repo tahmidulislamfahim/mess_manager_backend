@@ -26,7 +26,7 @@ if TURSO_DATABASE_URL:
 
     clean_url = clean_url.rstrip("/")
 
-    turso_engine_url = f"sqlite+libsql://{clean_url}?authToken={token}"
+    turso_engine_url = f"sqlite+libsql://{clean_url}?authToken={token}&secure=true"
 
     print(f"[Database] Connecting to Turso Cloud Database via sqlalchemy-libsql: {clean_url}...")
     engine = create_engine(turso_engine_url, connect_args={"check_same_thread": False})
