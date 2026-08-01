@@ -43,6 +43,14 @@ async def connect(sid, environ, auth=None):
         await sio.save_session(sid, {'user_id': user.id})
         await sio.enter_room(sid, f"user_{user.id}")
         await sio.enter_room(sid, "all_users")
+        
+        # Capture the active asyncio loop from connect event
+        try:
+            from app.notification_service import set_main_loop
+            set_main_loop(asyncio.get_running_loop())
+        except Exception:
+            pass
+
         print(f"[Socket.IO] User '{user.name}' (ID: {user.id}) connected & joined room 'user_{user.id}' (sid: {sid})")
 
     except Exception as e:
