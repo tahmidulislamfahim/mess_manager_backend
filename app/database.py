@@ -21,11 +21,17 @@ if TURSO_DATABASE_URL:
     # Strip AWS region subdomain (e.g. .aws-ap-south-1) to avoid 308 redirects from Turso edge proxy
     clean_url = re.sub(r'\.aws-[a-z0-9-]+\.turso\.io', '.turso.io', clean_url)
         
-    token = TURSO_AUTH_TOKEN or ""
-    turso_engine_url = f"sqlite+libsql://{clean_url}?authToken={token}&secure=true"
+    token = (TURSO_AUTH_TOKEN or "").strip()
+    turso_engine_url = f"sqlite+libsql://{clean_url}?auth_token={token}&authToken={token}&secure=true"
     
     print(f"[Database] Connecting to Turso Cloud Database: {clean_url}...")
-    engine = create_engine(turso_engine_url, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        turso_engine_url,
+        connect_args={
+            "check_same_thread": False,
+            "auth_token": token
+        }
+    )
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'mess.db')}"
