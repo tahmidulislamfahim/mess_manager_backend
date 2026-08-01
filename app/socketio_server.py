@@ -8,12 +8,13 @@ from app.models import User
 sio = socketio.AsyncServer(
     async_mode='asgi',
     cors_allowed_origins='*',
-    logger=False,
-    engineio_logger=False
+    logger=True,
+    engineio_logger=True
 )
 
 @sio.event
 async def connect(sid, environ, auth=None):
+    print(f"[Socket.IO Debug] connect handler called. sid={sid}, auth={auth}, QUERY={environ.get('QUERY_STRING')}")
     token = None
     if auth and isinstance(auth, dict) and 'token' in auth:
         token = auth['token']
@@ -26,6 +27,8 @@ async def connect(sid, environ, auth=None):
         if auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
 
+    print(f"[Socket.IO Debug] Extracted token: {token[:15] if token else None}")
+
     if not token:
         print(f"[Socket.IO] Connection rejected: No token provided (sid: {sid})")
         raise ConnectionRefusedError('Authentication token required')
@@ -33,11 +36,16 @@ async def connect(sid, environ, auth=None):
     db = SessionLocal()
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        user = db.query(User).filter(User.email == email).first() if email else None
+        sub = str(payload.get("sub")) if payload.get("sub") is not None else ""
+
+        user = None
+        if sub.isdigit():
+            user = db.query(User).filter(User.id == int(sub)).first()
+        if not user and sub:
+            user = db.query(User).filter(User.email == sub).first()
 
         if not user:
-            print(f"[Socket.IO] Connection rejected: Invalid user (sid: {sid})")
+            print(f"[Socket.IO] Connection rejected: Invalid user sub='{sub}' (sid: {sid})")
             raise ConnectionRefusedError('Invalid user token')
 
         await sio.save_session(sid, {'user_id': user.id})
