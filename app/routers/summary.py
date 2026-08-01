@@ -25,21 +25,8 @@ def get_month_summary(
 
     mess_month = get_or_create_mess_month(db, target_year, target_month, fallback_user_id=current_user.id)
 
-    manager = db.query(User).filter(User.id == mess_month.manager_id, User.is_active == True).first()
-    if not manager:
-        active_mgr = db.query(User).filter(User.role == "MANAGER", User.is_active == True).first()
-        if active_mgr:
-            mess_month.manager_id = active_mgr.id
-            db.commit()
-            manager = active_mgr
-        else:
-            super_admin = db.query(User).filter(User.role == "SUPER_ADMIN", User.is_active == True).first()
-            if super_admin:
-                mess_month.manager_id = super_admin.id
-                db.commit()
-                manager = super_admin
-
-    manager_name = manager.name if manager else "Super Admin"
+    manager = db.query(User).filter(User.id == mess_month.manager_id).first()
+    manager_name = manager.name if manager else "N/A"
 
     # 1. Total Expense = SUM(Expenses in Month)
     total_expenses_res = db.query(func.sum(Expense.amount)).filter(Expense.month_id == mess_month.id).scalar()

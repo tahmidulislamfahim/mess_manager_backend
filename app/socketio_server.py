@@ -37,9 +37,9 @@ async def connect(sid, environ, auth=None):
             raise ConnectionRefusedError('Invalid user token')
 
         await sio.save_session(sid, {'user_id': user.id})
-        sio.enter_room(sid, f"user_{user.id}")
-        sio.enter_room(sid, "all_users")
-        print(f"[Socket.IO] User '{user.name}' (ID: {user.id}) connected (sid: {sid})")
+        await sio.enter_room(sid, f"user_{user.id}")
+        await sio.enter_room(sid, "all_users")
+        print(f"[Socket.IO] User '{user.name}' (ID: {user.id}) connected & joined room 'user_{user.id}' (sid: {sid})")
 
     except Exception as e:
         print(f"[Socket.IO] Connection failed: {e}")

@@ -66,21 +66,8 @@ def get_current_month(
     now = get_current_local_now()
     mess_month = get_or_create_mess_month(db, now.year, now.month, fallback_user_id=current_user.id)
 
-    manager = db.query(User).filter(User.id == mess_month.manager_id, User.is_active == True).first()
-    if not manager:
-        active_mgr = db.query(User).filter(User.role == "MANAGER", User.is_active == True).first()
-        if active_mgr:
-            mess_month.manager_id = active_mgr.id
-            db.commit()
-            manager = active_mgr
-        else:
-            super_admin = db.query(User).filter(User.role == "SUPER_ADMIN", User.is_active == True).first()
-            if super_admin:
-                mess_month.manager_id = super_admin.id
-                db.commit()
-                manager = super_admin
-
-    manager_name = manager.name if manager else "Super Admin"
+    manager = db.query(User).filter(User.id == mess_month.manager_id).first()
+    manager_name = manager.name if manager else "Unknown"
 
     return MessMonthOut(
         id=mess_month.id,
