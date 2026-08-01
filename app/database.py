@@ -22,7 +22,7 @@ if TURSO_DATABASE_URL:
     clean_url = re.sub(r'\.aws-[a-z0-9-]+\.turso\.io', '.turso.io', clean_url)
         
     token = TURSO_AUTH_TOKEN or ""
-    turso_engine_url = f"sqlite+libsql://{clean_url}?authToken={token}"
+    turso_engine_url = f"sqlite+libsql://{clean_url}?authToken={token}&secure=true"
     
     print(f"[Database] Connecting to Turso Cloud Database: {clean_url}...")
     engine = create_engine(turso_engine_url, connect_args={"check_same_thread": False})
