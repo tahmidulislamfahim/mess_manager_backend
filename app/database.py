@@ -7,6 +7,11 @@ try:
 except ImportError:
     pass
 
+try:
+    import libsql_experimental
+except ImportError:
+    import sqlite3 as libsql_experimental
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -35,17 +40,17 @@ if TURSO_DATABASE_URL:
 
     clean_host = clean_host.rstrip("/")
     clean_host = re.sub(r'\.aws-[a-z0-9-]+\.turso\.io', '.turso.io', clean_host)
+    https_turso_url = f"https://{clean_host}"
 
-    # Note: sqlalchemy-libsql reads `auth_token` (snake_case) from url.query
-    turso_engine_url = f"sqlite+libsql://{clean_host}?auth_token={token}&secure=true"
+    print(f"[Database] Connecting to Turso Cloud Database via libsql_experimental over HTTPS: {https_turso_url} (token len: {len(token)})...")
 
-    print(f"[Database] Connecting to Turso Cloud Database: {clean_host} (token len: {len(token)})...")
+    def get_turso_connection():
+        return libsql_experimental.connect(https_turso_url, auth_token=token)
+
     engine = create_engine(
-        turso_engine_url,
-        connect_args={
-            "check_same_thread": False,
-            "auth_token": token
-        }
+        "sqlite+libsql://",
+        creator=get_turso_connection,
+        connect_args={"check_same_thread": False}
     )
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
