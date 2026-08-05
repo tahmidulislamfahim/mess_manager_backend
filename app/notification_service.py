@@ -1,6 +1,7 @@
 import asyncio
-from typing import Optional
+from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.models import User, Notification
 from app.month_utils import get_current_local_now
 from app.socketio_server import sio
@@ -19,18 +20,16 @@ def _get_loop() -> Optional[asyncio.AbstractEventLoop]:
     if hasattr(sio, 'eio') and sio.eio and hasattr(sio.eio, 'loop') and sio.eio.loop and sio.eio.loop.is_running():
         return sio.eio.loop
     try:
-        loop = asyncio.get_running_loop()
+        loop = asyncio.get_event_loop()
         if loop and loop.is_running():
             return loop
-    except RuntimeError:
+    except Exception:
         pass
     return None
 
 async def _emit_notification_to_user(user_id: int, notif_payload: dict, unread_count: int):
     try:
-        # Emit single, targeted new_notification event to user's room
         await sio.emit("new_notification", notif_payload, room=f"user_{user_id}")
-        # Emit updated unread count event to user's room
         await sio.emit("unread_count_updated", {"unread_count": unread_count}, room=f"user_{user_id}")
         print(f"[Socket.IO] Emitted notification to room user_{user_id} (unread: {unread_count})")
     except Exception as e:
@@ -50,11 +49,24 @@ def create_and_broadcast_notification(
     notification_type: str = "SYSTEM"
 ):
     """
-    Creates persistent notification DB records for all active users
-    and emits real-time 'new_notification' and 'unread_count_updated' events over Socket.IO.
+    Creates persistent notification DB records for all active users efficiently
+    and emits real-time Socket.IO notifications.
     """
     active_users = db.query(User).filter(User.is_active == True).all()
+    if not active_users:
+        return
+
     now = get_current_local_now()
+
+    # Optimized 1 single batch query for unread counts instead of N queries in a loop
+    unread_counts_raw = db.query(
+        Notification.user_id,
+        func.count(Notification.id)
+    ).filter(
+        Notification.is_read == False
+    ).group_by(Notification.user_id).all()
+
+    unread_map = {uid: count for uid, count in unread_counts_raw}
 
     notifications_to_emit = []
 
@@ -70,11 +82,7 @@ def create_and_broadcast_notification(
         db.add(notif)
         db.flush()  # Generates notif.id
 
-        # Calculate exact unread count for this user
-        unread_count = db.query(Notification).filter(
-            Notification.user_id == user.id,
-            Notification.is_read == False
-        ).count()
+        new_unread_count = unread_map.get(user.id, 0) + 1
 
         payload = {
             "id": notif.id,
@@ -84,22 +92,87 @@ def create_and_broadcast_notification(
             "type": notification_type,
             "is_read": False,
             "created_at": now.isoformat(),
-            "unread_count": unread_count
+            "unread_count": new_unread_count
         }
-        notifications_to_emit.append((user.id, payload, unread_count))
+        notifications_to_emit.append((user.id, payload, new_unread_count))
 
     db.commit()
 
-    # Safely dispatch async Socket.IO emits onto running event loop
-    loop = _get_loop()
+    # Dispatch emits safely using start_background_task with fallback
     for user_id, payload, unread_count in notifications_to_emit:
-        if loop and loop.is_running():
-            asyncio.run_coroutine_threadsafe(
-                _emit_notification_to_user(user_id, payload, unread_count),
-                loop
-            )
-        else:
-            print("[Socket.IO Warning] No running event loop available to emit notification")
+        try:
+            sio.start_background_task(_emit_notification_to_user, user_id, payload, unread_count)
+        except Exception:
+            loop = _get_loop()
+            if loop and loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    _emit_notification_to_user(user_id, payload, unread_count),
+                    loop
+                )
+
+def create_and_broadcast_per_user_notifications(
+    db: Session,
+    user_notifications: List[Tuple[int, str, str, str]]
+):
+    """
+    Accepts a list of tuples (user_id, title, message, notification_type)
+    and broadcasts tailored notifications to each specific user.
+    """
+    if not user_notifications:
+        return
+
+    now = get_current_local_now()
+
+    unread_counts_raw = db.query(
+        Notification.user_id,
+        func.count(Notification.id)
+    ).filter(
+        Notification.is_read == False
+    ).group_by(Notification.user_id).all()
+
+    unread_map = {uid: count for uid, count in unread_counts_raw}
+
+    notifications_to_emit = []
+
+    for user_id, title, message, notification_type in user_notifications:
+        notif = Notification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            type=notification_type,
+            is_read=False,
+            created_at=now
+        )
+        db.add(notif)
+        db.flush()
+
+        new_unread_count = unread_map.get(user_id, 0) + 1
+        unread_map[user_id] = new_unread_count
+
+        payload = {
+            "id": notif.id,
+            "user_id": user_id,
+            "title": title,
+            "message": message,
+            "type": notification_type,
+            "is_read": False,
+            "created_at": now.isoformat(),
+            "unread_count": new_unread_count
+        }
+        notifications_to_emit.append((user_id, payload, new_unread_count))
+
+    db.commit()
+
+    for user_id, payload, unread_count in notifications_to_emit:
+        try:
+            sio.start_background_task(_emit_notification_to_user, user_id, payload, unread_count)
+        except Exception:
+            loop = _get_loop()
+            if loop and loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    _emit_notification_to_user(user_id, payload, unread_count),
+                    loop
+                )
 
 def notify_unread_count_changed(db: Session, user_id: int):
     """
@@ -110,11 +183,12 @@ def notify_unread_count_changed(db: Session, user_id: int):
         Notification.is_read == False
     ).count()
 
-    loop = _get_loop()
-    if loop and loop.is_running():
-        asyncio.run_coroutine_threadsafe(
-            _emit_unread_count_to_user(user_id, unread_count),
-            loop
-        )
-    else:
-        print("[Socket.IO Warning] No running event loop available to emit unread count")
+    try:
+        sio.start_background_task(_emit_unread_count_to_user, user_id, unread_count)
+    except Exception:
+        loop = _get_loop()
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                _emit_unread_count_to_user(user_id, unread_count),
+                loop
+            )
