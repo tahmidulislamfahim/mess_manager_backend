@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base, SessionLocal
+from sqlalchemy.orm import Session
+from app.database import engine, Base, SessionLocal, get_db
 from app.models import User, MessMonth
 from app.security import get_password_hash
+from app.month_utils import get_or_create_mess_month, get_current_local_now
 from app.routers import auth, users, months, meals, expenses, deposits, summary, notifications
 
 import asyncio
@@ -68,7 +70,12 @@ def read_root():
     return {"message": "Mess Meal Management API is running", "docs": "/docs"}
 
 @app.api_route("/health", methods=["GET", "HEAD"])
-def health_check():
+def health_check(db: Session = Depends(get_db)):
+    try:
+        now = get_current_local_now()
+        get_or_create_mess_month(db, now.year, now.month)
+    except Exception as e:
+        print(f"[Health Check Warning] Month check deferred: {e}")
     return {"status": "ok"}
 
 import socketio
