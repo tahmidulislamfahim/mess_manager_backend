@@ -1,3 +1,8 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base, SessionLocal
@@ -55,21 +60,27 @@ async def start_background_schedulers():
 @app.on_event("startup")
 def startup_db_seed():
     try:
+        admin_email = os.getenv("SUPER_ADMIN_EMAIL", "admin@mess.com").strip()
+        admin_password = os.getenv("SUPER_ADMIN_PASSWORD", "admin123").strip()
+
         db = SessionLocal()
         try:
-            admin = db.query(User).filter(User.email == "admin@mess.com").first()
+            admin = db.query(User).filter(User.email == admin_email).first()
             if not admin:
-                admin = User(
-                    name="Super Admin",
-                    email="admin@mess.com",
-                    hashed_password=get_password_hash("admin123"),
-                    role="SUPER_ADMIN",
-                    is_active=True
-                )
-                db.add(admin)
-                db.commit()
-                db.refresh(admin)
-                print("Default Super Admin created: admin@mess.com / admin123")
+                # Also check if any super admin exists before creating
+                any_super_admin = db.query(User).filter(User.role == "SUPER_ADMIN").first()
+                if not any_super_admin:
+                    admin = User(
+                        name="Super Admin",
+                        email=admin_email,
+                        hashed_password=get_password_hash(admin_password),
+                        role="SUPER_ADMIN",
+                        is_active=True
+                    )
+                    db.add(admin)
+                    db.commit()
+                    db.refresh(admin)
+                    print(f"Default Super Admin created: {admin_email}")
         finally:
             db.close()
     except Exception as e:

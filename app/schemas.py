@@ -21,6 +21,9 @@ class UserProfileUpdate(BaseModel):
     name: Optional[str] = None
     password: Optional[str] = None
 
+class UserPasswordReset(BaseModel):
+    new_password: str
+
 # Auth Schemas
 class LoginRequest(BaseModel):
     email: EmailStr

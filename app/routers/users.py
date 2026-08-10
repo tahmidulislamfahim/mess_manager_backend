@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, DailyMeal, Deposit, Expense, MessMonth, Notification
-from app.schemas import UserCreate, UserOut, UserProfileUpdate
+from app.schemas import UserCreate, UserOut, UserProfileUpdate, UserPasswordReset
 from app.security import get_password_hash, get_current_user, require_roles
 
 from app.notification_service import create_and_broadcast_notification
@@ -132,3 +132,30 @@ def delete_user(
     )
 
     return {"message": f"User '{user_name}' and all associated meals and deposits were deleted successfully."}
+
+@router.put("/{user_id}/reset-password", response_model=UserOut, status_code=status.HTTP_200_OK)
+def reset_user_password(
+    user_id: int,
+    password_reset_in: UserPasswordReset,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    """
+    Super Admin endpoint to force-reset any user's password.
+    """
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    new_pass = password_reset_in.new_password.strip()
+    if not new_pass or len(new_pass) < 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 4 characters long"
+        )
+
+    target_user.hashed_password = get_password_hash(new_pass)
+    db.commit()
+    db.refresh(target_user)
+
+    return target_user
