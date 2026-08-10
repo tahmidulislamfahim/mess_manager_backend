@@ -60,8 +60,13 @@ async def start_background_schedulers():
 @app.on_event("startup")
 def startup_db_seed():
     try:
-        admin_email = os.getenv("SUPER_ADMIN_EMAIL", "admin@mess.com").strip()
-        admin_password = os.getenv("SUPER_ADMIN_PASSWORD", "admin123").strip()
+        admin_email = (os.getenv("SUPER_ADMIN_EMAIL") or "").strip()
+        admin_password = (os.getenv("SUPER_ADMIN_PASSWORD") or "").strip()
+
+        if not admin_email or not admin_password:
+            raise RuntimeError(
+                "SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD environment variables are required and must be set."
+            )
 
         db = SessionLocal()
         try:
