@@ -126,6 +126,8 @@ class MonthSummaryResponse(BaseModel):
     month: int
     manager_name: str
     total_expenses: float
+    total_deposits: float = 0.0
+    cash_in_hand: float = 0.0
     total_meals: int
     meal_rate: float
     member_summaries: List[MemberSummary]

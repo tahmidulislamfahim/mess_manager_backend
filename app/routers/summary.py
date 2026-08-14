@@ -57,6 +57,10 @@ def get_month_summary(
     for dep in deposits:
         user_deposits_map[dep.user_id] = user_deposits_map.get(dep.user_id, 0.0) + float(dep.amount or 0.0)
 
+    # 4. Total Deposits & Cash in Manager's Hand
+    total_deposits = round(sum(user_deposits_map.values()), 2)
+    cash_in_hand = round(total_deposits - total_expenses, 2)
+
     member_summaries = []
     for user in active_users:
         u_meals = user_meals_map.get(user.id, 0)
@@ -80,6 +84,8 @@ def get_month_summary(
         month=target_month,
         manager_name=manager_name,
         total_expenses=total_expenses,
+        total_deposits=total_deposits,
+        cash_in_hand=cash_in_hand,
         total_meals=total_meals,
         meal_rate=meal_rate,
         member_summaries=member_summaries
