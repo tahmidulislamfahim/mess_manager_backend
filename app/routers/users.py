@@ -114,13 +114,16 @@ def delete_user(
     # 2. Delete all deposits for this user
     db.query(Deposit).filter(Deposit.user_id == user_id).delete()
 
-    # 3. If user is manager in any MessMonth, reassign manager to Super Admin
+    # 3. Delete all notifications for this user
+    db.query(Notification).filter(Notification.user_id == user_id).delete()
+
+    # 4. If user is manager in any MessMonth, reassign manager to Super Admin
     super_admin = db.query(User).filter(User.role == "SUPER_ADMIN").first()
     if super_admin:
         db.query(MessMonth).filter(MessMonth.manager_id == user_id).update({"manager_id": super_admin.id})
         db.commit()
 
-    # 4. Delete user record
+    # 5. Delete user record
     db.delete(target_user)
     db.commit()
 
