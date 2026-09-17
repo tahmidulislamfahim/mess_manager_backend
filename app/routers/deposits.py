@@ -76,7 +76,12 @@ def list_deposits(
         return []
 
     deposits = db.query(Deposit).filter(Deposit.month_id == mess_month.id).order_by(Deposit.date.desc()).all()
-    user_map = {u.id: u.name for u in db.query(User).all()}
+    if not deposits:
+        return []
+
+    user_ids = list({d.user_id for d in deposits})
+    users = db.query(User.id, User.name).filter(User.id.in_(user_ids)).all()
+    user_map = {u.id: u.name for u in users}
 
     return [
         DepositOut(

@@ -121,7 +121,6 @@ def delete_user(
     super_admin = db.query(User).filter(User.role == "SUPER_ADMIN").first()
     if super_admin:
         db.query(MessMonth).filter(MessMonth.manager_id == user_id).update({"manager_id": super_admin.id})
-        db.commit()
 
     # 5. Delete user record
     db.delete(target_user)

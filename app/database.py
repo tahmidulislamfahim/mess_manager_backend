@@ -56,7 +56,7 @@ if TURSO_DATABASE_URL:
         pool_size=10,
         max_overflow=20,
         pool_recycle=300,
-        pool_pre_ping=True
+        pool_pre_ping=False
     )
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -66,7 +66,7 @@ else:
         DATABASE_URL, connect_args={"check_same_thread": False}
     )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, expire_on_commit=False, bind=engine)
 
 Base = declarative_base()
 

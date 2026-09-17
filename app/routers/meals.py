@@ -26,18 +26,30 @@ def batch_update_meals(
     if mess_month.is_closed:
         raise HTTPException(status_code=400, detail="Target mess month is closed")
 
-    results = []
+    if not req.meals:
+        return []
+
+    # 1. Fetch all requested active users in 1 single query
+    requested_user_ids = list({item.user_id for item in req.meals})
+    active_users = db.query(User).filter(User.id.in_(requested_user_ids), User.is_active == True).all()
+    user_map = {u.id: u for u in active_users}
+
+    # 2. Fetch all existing meals for this date and month in 1 single query
+    existing_meals = db.query(DailyMeal).filter(
+        DailyMeal.month_id == mess_month.id,
+        DailyMeal.date == req.date,
+        DailyMeal.user_id.in_(user_map.keys())
+    ).all()
+    meal_map = {m.user_id: m for m in existing_meals}
+
+    # 3. Update or create in memory
+    saved_items = []
     for item in req.meals:
-        user = db.query(User).filter(User.id == item.user_id, User.is_active == True).first()
+        user = user_map.get(item.user_id)
         if not user:
             continue
 
-        daily_meal = db.query(DailyMeal).filter(
-            DailyMeal.month_id == mess_month.id,
-            DailyMeal.user_id == item.user_id,
-            DailyMeal.date == req.date
-        ).first()
-
+        daily_meal = meal_map.get(item.user_id)
         if daily_meal:
             daily_meal.lunch_count = max(0, item.lunch_count)
             daily_meal.dinner_count = max(0, item.dinner_count)
@@ -50,19 +62,25 @@ def batch_update_meals(
                 dinner_count=max(0, item.dinner_count)
             )
             db.add(daily_meal)
+            meal_map[item.user_id] = daily_meal
 
-        db.commit()
-        db.refresh(daily_meal)
+        saved_items.append((daily_meal, user.name))
 
-        results.append(DailyMealOut(
-            id=daily_meal.id,
-            month_id=daily_meal.month_id,
-            user_id=daily_meal.user_id,
-            user_name=user.name,
-            date=daily_meal.date,
-            lunch_count=daily_meal.lunch_count,
-            dinner_count=daily_meal.dinner_count
-        ))
+    # 4. Single commit for all changes
+    db.commit()
+
+    # 5. Build output results directly from in-memory objects
+    results = [
+        DailyMealOut(
+            id=dm.id,
+            month_id=dm.month_id,
+            user_id=dm.user_id,
+            user_name=uname,
+            date=dm.date,
+            lunch_count=dm.lunch_count,
+            dinner_count=dm.dinner_count
+        ) for dm, uname in saved_items
+    ]
 
     create_and_broadcast_notification(
         db,
@@ -87,7 +105,12 @@ def list_meals(
         DailyMeal.date == query_date
     ).all()
 
-    user_map = {u.id: u.name for u in db.query(User).all()}
+    if not meals:
+        return []
+
+    meal_user_ids = list({m.user_id for m in meals})
+    users = db.query(User.id, User.name).filter(User.id.in_(meal_user_ids)).all()
+    user_map = {u.id: u.name for u in users}
 
     return [
         DailyMealOut(

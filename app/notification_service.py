@@ -80,35 +80,34 @@ def create_and_broadcast_notification(
             created_at=now
         )
         db.add(notif)
-        db.flush()  # Generates notif.id
-
         new_unread_count = unread_map.get(user.id, 0) + 1
+        notifications_to_emit.append((user.id, notif, new_unread_count))
 
-        payload = {
-            "id": notif.id,
-            "user_id": user.id,
-            "title": title,
-            "message": message,
-            "type": notification_type,
-            "is_read": False,
-            "created_at": now.isoformat(),
-            "unread_count": new_unread_count
-        }
-        notifications_to_emit.append((user.id, payload, new_unread_count))
-
+    # Commit all notifications in 1 single network round-trip
     db.commit()
 
     # Dispatch emits safely using start_background_task with fallback
-    for user_id, payload, unread_count in notifications_to_emit:
+    for user_id, notif, unread_count in notifications_to_emit:
+        payload = {
+            "id": notif.id,
+            "user_id": user_id,
+            "title": notif.title,
+            "message": notif.message,
+            "type": notif.type,
+            "is_read": False,
+            "created_at": now.isoformat(),
+            "unread_count": unread_count
+        }
         try:
             sio.start_background_task(_emit_notification_to_user, user_id, payload, unread_count)
         except Exception:
             loop = _get_loop()
             if loop and loop.is_running():
-                asyncio.run_coroutine_threadsafe(
-                    _emit_notification_to_user(user_id, payload, unread_count),
-                    loop
-                )
+                coro = _emit_notification_to_user(user_id, payload, unread_count)
+                try:
+                    asyncio.run_coroutine_threadsafe(coro, loop)
+                except Exception:
+                    coro.close()
 
 def create_and_broadcast_per_user_notifications(
     db: Session,
@@ -144,35 +143,34 @@ def create_and_broadcast_per_user_notifications(
             created_at=now
         )
         db.add(notif)
-        db.flush()
-
         new_unread_count = unread_map.get(user_id, 0) + 1
         unread_map[user_id] = new_unread_count
+        notifications_to_emit.append((user_id, notif, new_unread_count))
 
+    # Commit all notifications in 1 single network round-trip
+    db.commit()
+
+    for user_id, notif, unread_count in notifications_to_emit:
         payload = {
             "id": notif.id,
             "user_id": user_id,
-            "title": title,
-            "message": message,
-            "type": notification_type,
+            "title": notif.title,
+            "message": notif.message,
+            "type": notif.type,
             "is_read": False,
             "created_at": now.isoformat(),
-            "unread_count": new_unread_count
+            "unread_count": unread_count
         }
-        notifications_to_emit.append((user_id, payload, new_unread_count))
-
-    db.commit()
-
-    for user_id, payload, unread_count in notifications_to_emit:
         try:
             sio.start_background_task(_emit_notification_to_user, user_id, payload, unread_count)
         except Exception:
             loop = _get_loop()
             if loop and loop.is_running():
-                asyncio.run_coroutine_threadsafe(
-                    _emit_notification_to_user(user_id, payload, unread_count),
-                    loop
-                )
+                coro = _emit_notification_to_user(user_id, payload, unread_count)
+                try:
+                    asyncio.run_coroutine_threadsafe(coro, loop)
+                except Exception:
+                    coro.close()
 
 def notify_unread_count_changed(db: Session, user_id: int):
     """
